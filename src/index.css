@@ -7,7 +7,18 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+.selected {
+  fill: rgb(35, 144, 194) !important;
+}
+
+.s-noselect {
+  -webkit-touch-callout: none;-webkit-user-select: none;-khtml-user-select: none;-moz-user-select: none;-ms-user-select: none;user-select: none;
+}
+
+#q_svg_output, #m_svg_output {
+  z-index:1;
+  position:absolute;
+  opacity:5;
+  /*		transform:  translate(5px, 24px); */
+  order: 1;
 }
