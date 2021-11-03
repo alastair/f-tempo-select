@@ -22,6 +22,26 @@ interface SystemBox {
     [systemId: string]: BBox
 }
 
+/**
+ * Scale conversion:
+ * Theoretically in SVG you should be able to do something like this:
+ *
+ * const matrix = elem.getScreenCTM();
+ * const svg = elem.closest("svg").parentElement
+ * const p = svg.createSVGPoint()
+ * p.x=
+ * p.y=
+ * p.matrixTransform(matrix)
+ *  - or p.matrixTransform(matrix.inverse())
+ *
+ * This is to convert between the DOM scale and the SVG scale. However I can't seem to get it working
+ * with a scaling provided by a <svg viewport=""> attribute, and have to resort to adding
+ * an additional scale factor with
+ *  const viewportScale = mainSvg.getBBox().width / mainSvg.getBoundingClientRect().width;
+ *
+ * unsure if the matrix can also take care of this, or if there's another bounding box method.
+ */
+
 export default class Result extends Component<ResultProps, ResultState> {
     constructor(props: Readonly<ResultProps>) {
         super(props);
@@ -72,12 +92,9 @@ export default class Result extends Component<ResultProps, ResultState> {
         // in the scaled (physical) view, but when creating a rect we need the sizes relative
         // to the viewport size
         const viewportScale = mainSvg.getBBox().width / mainSvg.getBoundingClientRect().width;
-        console.debug(`scale ${viewportScale}`)
         const offset = mainSvg.getBoundingClientRect();
         const matrix = elem.getScreenCTM();
         return {
-            // x: (matrix.a * x) + (matrix.c * y) + matrix.e - offset.left,
-            // y: (matrix.b * x) + (matrix.d * y) + matrix.f - offset.top
             x: (matrix.a * x * viewportScale) + matrix.e - offset.left,
             y: (matrix.d * y * viewportScale) + matrix.f - offset.top
         };
@@ -90,13 +107,12 @@ export default class Result extends Component<ResultProps, ResultState> {
         const height = elem.getBBox().height;
         const mainSvg = elem.closest("svg").parentElement
         const viewportScale = mainSvg.getBBox().width / mainSvg.getBoundingClientRect().width;
-        const offset = mainSvg.getBoundingClientRect();
         const matrix = elem.getScreenCTM();
         return {
-            x: (matrix.a * x * viewportScale) + matrix.e - offset.left,
-            y: (matrix.d * y * viewportScale) + matrix.f - offset.top,
-            width: (matrix.a * width * viewportScale) + matrix.e - offset.left,
-            height: (matrix.d * height * viewportScale) + matrix.f - offset.top
+            x: (matrix.a * x * viewportScale) + matrix.e,
+            y: (matrix.d * y * viewportScale) + matrix.f,
+            width: (matrix.a * width),
+            height: (matrix.d * height)
         };
     }
 
@@ -110,47 +126,38 @@ export default class Result extends Component<ResultProps, ResultState> {
         if(!elements.length) return systems;
 
         // first get the vert/horiz screen offsets of the entire div into which all SVG is drawn
-        var parentBox = elements[0].closest('div').childNodes[0].getBoundingClientRect();
+        const parentBox = elements[0].closest('div').childNodes[0].getBoundingClientRect();
         console.debug(parentBox);
         console.debug(elements[0].closest('div'))
         console.debug(elements[0].closest('div').childNodes[0])
-        var offsetY = parentBox.top;
-        var offsetX = parentBox.left;
+        const offsetY = parentBox.top;
+        const offsetX = parentBox.left;
 
-        console.log(`offsetx ${offsetX}`)
-        console.log(`offsety ${offsetY}`)
-
-        for(let i = 0; i < elements.length; i++){
-            if(!elements[i]) continue;
+        for (const element of elements){
 
             // The childNodes here are the top and bottom staff-lines themselves,
             // but y is screen-relative (??), so we add offsetY;
             // the last tweak (+- 8) is to get a reasonable 'margin' around the box
             // first staff line
-            const elTop = this.convertCoords(elements[i].closest('.staff').childNodes[1]).y + offsetY - 8;
+            const elTop = this.convertCoords(element.closest('.staff').childNodes[1]).y + offsetY - 8;
             // last staff line
-            const elBot = this.convertCoords(elements[i].closest('.staff').childNodes[9]).y + offsetY + 8;
+            const elBot = this.convertCoords(element.closest('.staff').childNodes[9]).y + offsetY + 8;
             console.log("element")
-            console.log(elements[i])
-            //console.log(elements[i].closest('.staff').childNodes[1])
-            //console.log(elements[i].closest('.staff').childNodes[9])
+            console.log(element)
 
-            const elementRect = elements[i].getBoundingClientRect();
+            const elementRect = element.getBoundingClientRect();
             console.log(elementRect)
-            const system = this.getSystem(elements[i]);
+            const system = this.getSystem(element);
             if(systems[system]) {
                 systems[system].top = elTop;
                 systems[system].bottom = elBot;
                 systems[system].left = (systems[system].left || systems[system].left===0)
-                    ? Math.min(this.cv(elements[i]).x, systems[system].left) : this.cv(elements[i]).x;
-                console.log('iterate right')
-                console.log(`x: ${elements[i].getBBox().x} converted x: ${this.cv(elements[i]).x}`)
-                console.log(`width: ${elements[i].getBBox().width} converted w: ${this.cv(elements[i]).width}`)
-                systems[system].right = systems[system].right ? Math.max(this.cv(elements[i]).x+this.cv(elements[i]).width, systems[system].right)
-                    : this.cv(elements[i]).x+this.cv(elements[i]).width;
+                    ? Math.min(this.cv(element).x, systems[system].left) : this.cv(element).x;
+                systems[system].right = systems[system].right ? Math.max(this.cv(element).x+this.cv(element).width, systems[system].right)
+                    : this.cv(element).x+this.cv(element).width;
             } else {
                 systems[system] = {top: elTop, bottom: elBot,
-                    left: this.cv(elements[i]).x, right: this.cv(elements[i]).x+this.cv(elements[i]).width};
+                    left: this.cv(element).x, right: this.cv(element).x+this.cv(element).width};
             }
         }
         for (const s in systems) {
