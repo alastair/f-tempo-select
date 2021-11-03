@@ -22,26 +22,6 @@ interface SystemBox {
     [systemId: string]: BBox
 }
 
-/**
- * Scale conversion:
- * Theoretically in SVG you should be able to do something like this:
- *
- * const matrix = elem.getScreenCTM();
- * const svg = elem.closest("svg").parentElement
- * const p = svg.createSVGPoint()
- * p.x=
- * p.y=
- * p.matrixTransform(matrix)
- *  - or p.matrixTransform(matrix.inverse())
- *
- * This is to convert between the DOM scale and the SVG scale. However I can't seem to get it working
- * with a scaling provided by a <svg viewport=""> attribute, and have to resort to adding
- * an additional scale factor with
- *  const viewportScale = mainSvg.getBBox().width / mainSvg.getBoundingClientRect().width;
- *
- * unsure if the matrix can also take care of this, or if there's another bounding box method.
- */
-
 export default class Result extends Component<ResultProps, ResultState> {
     constructor(props: Readonly<ResultProps>) {
         super(props);
@@ -83,87 +63,63 @@ export default class Result extends Component<ResultProps, ResultState> {
         });
     }
 
-    convertCoords = (elem: any) => {
-        const x = elem.getBBox().x;
-        const y = elem.getBBox().y;
+    convertScale = (elem: any) => {
+        const rect = elem.getBoundingClientRect()
         const mainSvg = elem.closest("svg").parentElement
-        // Verovio adds a viewport attribute to the main svg, for scaling. We compute values
-        // in the scaled (physical) view, but when creating a rect we need the sizes relative
-        // to the viewport size
-        const viewportScale = mainSvg.getBBox().width / mainSvg.getBoundingClientRect().width;
-        const offset = mainSvg.getBoundingClientRect();
-        const matrix = elem.getScreenCTM();
+        const topleft = mainSvg.createSVGPoint()
+        topleft.x = rect.left
+        topleft.y = rect.top
+        const bottomright = mainSvg.createSVGPoint()
+        bottomright.x = rect.right
+        bottomright.y = rect.bottom
+        const topleftT = topleft.matrixTransform(mainSvg.getScreenCTM().inverse())
+        const bottomrightT = bottomright.matrixTransform(mainSvg.getScreenCTM().inverse())
+
         return {
-            x: (matrix.a * x * viewportScale) + matrix.e - offset.left,
-            y: (matrix.d * y * viewportScale) + matrix.f - offset.top
+            x: topleftT.x,
+            y: topleftT.y,
+            width: bottomrightT.x - topleftT.x,
+            height: bottomright.y - topleftT.y,
+            right: bottomrightT.x,
+            bottom: bottomrightT.y
         };
     }
 
-    cv = (elem: any) => {
-        const x = elem.getBBox().x;
-        const y = elem.getBBox().y;
-        const width = elem.getBBox().width;
-        const height = elem.getBBox().height;
-        const mainSvg = elem.closest("svg").parentElement
-        const viewportScale = mainSvg.getBBox().width / mainSvg.getBoundingClientRect().width;
-        const matrix = elem.getScreenCTM();
-        return {
-            x: (matrix.a * x * viewportScale) + matrix.e,
-            y: (matrix.d * y * viewportScale) + matrix.f,
-            width: (matrix.a * width),
-            height: (matrix.d * height)
-        };
-    }
-
-    getSystem = (element: any) => {
-        const sysObj = element.closest('.system');
-        return sysObj.id;
-    }
-
+    /**
+     * Find the bounding box(es) for a list of elements in an SVG rendered score.
+     * The elements should be contiguous, but may cover more than one system.
+     *
+     * The left boundary of the system is that of the left-most element for that system
+     * and the right boundary is that of the right-most element.
+     * The top and bottom are bounded by the first and last staffline.
+     *
+     * The bounding boxes will be scaled to be able to be drawn directly on the
+     * canvas that the elements are part of.
+     * @param elements
+     * @return an object of bounding boxes for each system
+     */
     boundingBoxesForElements = (elements: any): SystemBox => {
         const systems: any = {};
         if(!elements.length) return systems;
 
-        // first get the vert/horiz screen offsets of the entire div into which all SVG is drawn
-        const parentBox = elements[0].closest('div').childNodes[0].getBoundingClientRect();
-        console.debug(parentBox);
-        console.debug(elements[0].closest('div'))
-        console.debug(elements[0].closest('div').childNodes[0])
-        const offsetY = parentBox.top;
-        const offsetX = parentBox.left;
+        for (const element of elements) {
+            const elementStaff = element.closest('.staff');
+            const staffLines = elementStaff.getElementsByTagName('path');
+            const elTop = this.convertScale(staffLines[0]).y;
+            const elBot = this.convertScale(staffLines[staffLines.length-1]).y;
 
-        for (const element of elements){
-
-            // The childNodes here are the top and bottom staff-lines themselves,
-            // but y is screen-relative (??), so we add offsetY;
-            // the last tweak (+- 8) is to get a reasonable 'margin' around the box
-            // first staff line
-            const elTop = this.convertCoords(element.closest('.staff').childNodes[1]).y + offsetY - 8;
-            // last staff line
-            const elBot = this.convertCoords(element.closest('.staff').childNodes[9]).y + offsetY + 8;
-            console.log("element")
-            console.log(element)
-
-            const elementRect = element.getBoundingClientRect();
-            console.log(elementRect)
-            const system = this.getSystem(element);
-            if(systems[system]) {
-                systems[system].top = elTop;
-                systems[system].bottom = elBot;
-                systems[system].left = (systems[system].left || systems[system].left===0)
-                    ? Math.min(this.cv(element).x, systems[system].left) : this.cv(element).x;
-                systems[system].right = systems[system].right ? Math.max(this.cv(element).x+this.cv(element).width, systems[system].right)
-                    : this.cv(element).x+this.cv(element).width;
+            const system = element.closest('.system').id;
+            if (systems[system]) {
+                systems[system].left = Math.min(this.convertScale(element).x, systems[system].left);
+                systems[system].right = Math.max(this.convertScale(element).right, systems[system].right);
             } else {
-                systems[system] = {top: elTop, bottom: elBot,
-                    left: this.cv(element).x, right: this.cv(element).x+this.cv(element).width};
+                systems[system] = {
+                    top: elTop,
+                    bottom: elBot,
+                    left: this.convertScale(element).x,
+                    right: this.convertScale(element).right
+                };
             }
-        }
-        for (const s in systems) {
-            systems[s].top -= offsetY;
-            systems[s].bottom -= offsetY;
-            systems[s].left -= offsetX;
-            systems[s].right -= offsetX;
         }
         return systems;
     }
