@@ -1,6 +1,3 @@
-import {useState} from "react";
-import Result from "./Result";
-
 type NgramNote = {
     note: string
     id: string
@@ -25,7 +22,7 @@ export default function ResultList (props: ResultListProps) {
             return <li key={result.match_id}><a href="" onClick={(e) => {
                 e.preventDefault();
                 props.onResultSelect(idx)
-            }}>{result.match_id}</a></li>
+            }}>{result.match_id} ({result.notes.length} match{result.notes.length === 1 ? '' : 'es'})</a></li>
         })}
     </ul>
     </div>

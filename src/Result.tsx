@@ -62,23 +62,22 @@ export default class Result extends Component<ResultProps, ResultState> {
             this.setState({
                 renderedScore: svg
             }, () => {
-                // By this stage we've rendered it
-                const elements = [];
-                if (this.props.result.notes.length > 0) {
-                    for (const note of this.props.result.notes[0]) {
+                // By this stage we've rendered the svg and it's in the DOM, so we can manipulate it
+                // TODO: This is super dodgy because we're editing the SVG in the dom after React has rendered it :(
+                for (const match of this.props.result.notes) {
+                    const elements = [];
+                    for (const note of match) {
                         elements.push(document.getElementById(note.id));
                     }
-                }
-                console.debug(elements)
-                const boundingBoxes = this.boundingBoxesForElements(elements);
-                console.debug(boundingBoxes);
 
-                // TODO: This is super dodgy because we're editing the SVG in the dom after React has rendered it :(
-                for (const [system, bb] of Object.entries(boundingBoxes)) {
-                    const drawq = SVG().addTo('#m_svg_output svg');
-                    drawq.rect(bb.right - bb.left, bb.bottom - bb.top);
-                    drawq.move(bb.left, bb.top);
-                    drawq.attr({'fill-opacity': 0.3, 'stroke': "orange"});
+                    const boundingBoxes = this.boundingBoxesForElements(elements);
+
+                    for (const bb of Object.values(boundingBoxes)) {
+                        const rect = SVG().addTo('#m_svg_output svg');
+                        rect.rect(bb.right - bb.left, bb.bottom - bb.top);
+                        rect.move(bb.left, bb.top);
+                        rect.attr({'fill-opacity': 0.3, 'stroke': "orange"});
+                    }
                 }
             });
         });
