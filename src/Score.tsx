@@ -2,7 +2,7 @@ import React, {SyntheticEvent} from "react";
 import DragSelect from "dragselect/dist/DragSelect";
 import type {NgramResult} from "./ResultList";
 import ResultList from "./ResultList";
-import {Button, Col, Container, Row } from "react-bootstrap";
+import {Button, Col, Container, Form, Row} from "react-bootstrap";
 import Result from "./Result";
 
 type Pitch = {
@@ -19,8 +19,6 @@ type Pitch = {
  * @param pitches
  */
 function pitchesToIntervalMapping(pitches: Pitch[]) {
-  const interval_mapping = '-abcdefghijklmnopqrstuvwxyz'.split('');
-
   const alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
   const pitch_nums = pitches.map(function(e) {
@@ -34,6 +32,13 @@ function pitchesToIntervalMapping(pitches: Pitch[]) {
   for (let i = 0; i < pitch_nums.length - 1; i++) {
     pitch_intervals.push(pitch_nums[i + 1] - pitch_nums[i]);
   }
+  console.debug(`pitch intervasl: ${pitch_intervals}`);
+  return intervalsToAlphabet(pitch_intervals);
+}
+
+function intervalsToAlphabet(pitch_intervals: number[]) {
+  const interval_mapping = '-abcdefghijklmnopqrstuvwxyz'.split('');
+
   return pitch_intervals.map(function(i) {
     // Clamp to a maximum interval of 25 notes
     if (i < -26) i = -26;
@@ -43,7 +48,24 @@ function pitchesToIntervalMapping(pitches: Pitch[]) {
       letter = letter.toUpperCase();
     }
     return letter;
-  }).join('');
+  }).join(' ');
+}
+
+/**
+ * f-tempo index specific interval mapping function
+ * convert a string of pitches to a search string
+ * userPitches: 1 1 0 -2 (up1 up1 same down2)
+ * This has some black magic due to a bug in the original mapping function
+ * 1 and -1 => 6 and -6 and vice-versa. Other numbers are the same
+ * @param userPitches
+ */
+function userPitchesToIntervalMapping(userPitches: string) {
+  //f-tempo index specific interval mapping function
+  const pitch_intervals = userPitches.split(" ").map((n) => {
+    return parseInt(n, 10);
+  });
+
+  return intervalsToAlphabet(pitch_intervals);
 }
 
 interface ScoreState {
@@ -54,6 +76,8 @@ interface ScoreState {
   mei?: string;
   noteIds?: string[];
   notePitches?: Pitch[];
+  userInput: string;
+  interval: boolean;
   error?: string;
   selectedNotes?: Pitch[];
   searchResults?: NgramResult[];
@@ -68,6 +92,8 @@ class Score extends React.Component<{}, ScoreState> {
       width: undefined,
       height: undefined,
       verovioTk: new window.verovio.toolkit(),
+      interval: false,
+      userInput: ''
     }
   }
 
@@ -190,15 +216,34 @@ class Score extends React.Component<{}, ScoreState> {
     })
   }
 
+  getQuery = () => {
+    let query = undefined;
+    if (this.state.userInput !== '') {
+      if (!this.state.interval) {
+        query = this.state.userInput;
+      } else {
+        query = userPitchesToIntervalMapping(this.state.userInput);
+      }
+    } else if (this.state.selectedNotes) {
+      if (!this.state.interval) {
+        query = this.state.selectedNotes.map((e) => {
+          return `${e.pitch}${e.oct}`;
+        }).join(" ");
+      } else {
+        query = pitchesToIntervalMapping(this.state.selectedNotes);
+      }
+    }
+    return query;
+  }
+
   doSearch = () => {
-    if (!this.state.selectedNotes) return;
-    const query = this.state.selectedNotes.map((e) => {
-      return `${e.pitch}${e.oct}`;
-    }).join(" ");
+    const query = this.getQuery();
+    if (!query) return;
 
-    const data = { ngrams: query };
+    const data = { ngrams: query, interval: this.state.interval };
 
-    fetch('http://localhost:8000/api/ngram', {
+    fetch('https://solrdev.f-tempo.org/api/ngram', {
+    //fetch('http://localhost:8000/api/ngram', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -216,6 +261,8 @@ class Score extends React.Component<{}, ScoreState> {
   }
 
   render() {
+    const query = this.getQuery();
+    const show = query !== undefined;
     return <Container>
       <Row>
         <Col>
@@ -226,9 +273,26 @@ class Score extends React.Component<{}, ScoreState> {
           <p>
             {this.state.error && <span>Error: {this.state.error}</span> }
           </p>
-          <p>{this.state.selectedNotes && this.state.selectedNotes.map((e) => {
-            return `${e.pitch}${e.oct}  `;
-          })}<br/>
+          <p>{show && query}<br/>
+            <Form.Check inline label="Use intervals" name="interval" checked={this.state.interval} onChange={() => {
+              this.setState({
+                interval: !this.state.interval
+              })
+            }
+            } />
+            <Form.Group className="mb-3" controlId="exampleForm.ControlInput1">
+              <Form.Label>User-provided query</Form.Label>
+            <Form.Control placeholder="User-provided query" value={this.state.userInput} onChange={(e) => {
+              this.setState({
+                userInput: e.target.value
+              })
+            }
+            } />
+              <Form.Text muted>
+                Use lower-case note name + octaves, separated by space, e.g. "c4 a3 b3 c4 d4"<br />
+                For intervals, use diatonic pitch steps as numbers positive for up, negative for down, 0 for no change, e.g. "-2 1 1 1 0 -1"
+              </Form.Text>
+            </Form.Group>
             <Button onClick={this.doSearch}>Search</Button>
           </p>
           {this.state.searchResults && <ResultList results={this.state.searchResults} onResultSelect={this.onSelectResult} />}
