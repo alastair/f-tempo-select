@@ -240,10 +240,10 @@ class Score extends React.Component<{}, ScoreState> {
     const query = this.getQuery();
     if (!query) return;
 
-    const data = { ngrams: query, interval: this.state.interval };
+    const data = { subsequence: query, interval: this.state.interval };
 
-    fetch('https://solrdev.f-tempo.org/api/ngram', {
-    //fetch('http://localhost:8000/api/ngram', {
+    fetch('https://solrdev.f-tempo.org/api/query_subsequence', {
+    //fetch('http://localhost:8000/api/query_subsequence', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -253,7 +253,7 @@ class Score extends React.Component<{}, ScoreState> {
     .then(response => response.json())
     .then(data => {
       console.log('Success:', data);
-      this.setState({searchResults: data.data});
+      this.setState({searchResults: data.data.results});
     })
     .catch((error) => {
       console.error('Error:', error);
