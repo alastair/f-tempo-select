@@ -48,7 +48,7 @@ function Viewer() {
 
     useEffect(() => {
         const verovioTk =  new window.verovio.toolkit();
-        fetch(`http://alastairpc:8000/api/get_mei?id=${documentId}`).then(r => r.text()).then(meiXML => {
+        fetch(`https://solrdev.f-tempo.org/api/get_mei?id=${documentId}`).then(r => r.text()).then(meiXML => {
             const options = {
                 footer: "none",
                 shrinkToFit: true,
@@ -83,15 +83,21 @@ function Viewer() {
             setError('count param is missing or invalid number');
             return;
         }
-        const notes = staffNotes[staff].slice(startNumber, startNumber+countNumber);
-        notes.forEach((n) => {
-            console.log(n);
-            const el = document.getElementById(n);
-            if (el) {
-                el.setAttribute("style", "fill: blue !important;");
-            }
-        })
+        const id = setInterval(() => {
+            const notes = staffNotes[staff].slice(startNumber, startNumber+countNumber);
+            notes.forEach((n) => {
+                console.log(n);
+                const el = document.getElementById(n);
+                if (el) {
+                    console.log("found it");
+                    el.setAttribute("style", "fill: blue !important;");
+                } else {
+                    console.log("element not in the doc, can't set")
+                }
+            })
+        }, 1000);
 
+        return () => clearInterval(id);
     }, [renderedScore, staff, staffNotes, start, count])
 
     if (error) {
