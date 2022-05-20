@@ -83,7 +83,7 @@ function Viewer() {
             setError('count param is missing or invalid number');
             return;
         }
-        const id = setInterval(() => {
+        setTimeout(() => {
             const notes = staffNotes[staff].slice(startNumber, startNumber+countNumber);
             notes.forEach((n) => {
                 console.log(n);
@@ -96,8 +96,6 @@ function Viewer() {
                 }
             })
         }, 1000);
-
-        return () => clearInterval(id);
     }, [renderedScore, staff, staffNotes, start, count])
 
     if (error) {
