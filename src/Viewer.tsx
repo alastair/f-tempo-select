@@ -1,7 +1,7 @@
-import React, {useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import {useParams, useSearchParams} from "react-router-dom";
-import {Col, Container, Row} from "react-bootstrap";
+import {Button, Col, Container, Row} from "react-bootstrap";
 
 /**
  * Parse an MEI file and return an object {staffId: [noteid, noteid, ...]}
@@ -36,7 +36,7 @@ function parseMeiParts(meiContents: string) {
 
 function Viewer() {
 
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [renderedScore, setRenderedScore] = useState(undefined);
     const [staffNotes, setStaffNotes] = useState<{[k: string]: string[]}>({});
     const [error, setError] = useState<string|null>(null);
@@ -45,24 +45,44 @@ function Viewer() {
     const staff = searchParams.get('staff');
     const start = searchParams.get('start');
     const count = searchParams.get('count');
+    const page = searchParams.get('page');
+    const pageInt = page && parseInt(page, 10);
+
+    const newPageParams = useCallback((newPage: number) => {
+        return Object.assign(
+            {},
+            {page: newPage.toString()},
+            staff && {staff},
+            start && {start},
+            count && {count})
+    }, [count, staff, start]);
 
     useEffect(() => {
+        // If the page argument is missing or isn't a number, set it to 1
+        if (page === null || isNaN(parseInt(page, 10))) {
+            setSearchParams(newPageParams(1));
+        }
+    }, [count, newPageParams, page, setSearchParams, staff, start]);
+
+    useEffect(() => {
+        if (!pageInt) {
+            return;
+        }
         const verovioTk =  new window.verovio.toolkit();
         fetch(`https://solrdev.f-tempo.org/api/get_mei?id=${documentId}`).then(r => r.text()).then(meiXML => {
             const options = {
                 footer: "none",
                 shrinkToFit: true,
-                svgViewBox: true
+                svgViewBox: true,
             };
             verovioTk.setOptions(options);
-            //console.debug(options)
-            //console.debug(this.state.verovioTk.getOptions());
-            let svg = verovioTk.renderData(meiXML, {});
+            verovioTk.loadData(meiXML, {});
+            let svg = verovioTk.renderToSVG(pageInt);
             setRenderedScore(svg);
             setStaffNotes(parseMeiParts(meiXML));
             setError(null);
         });
-    }, [documentId])
+    }, [documentId, page, pageInt])
 
     useEffect(() => {
         if (!renderedScore) {
@@ -90,7 +110,7 @@ function Viewer() {
                 const el = document.getElementById(n);
                 if (el) {
                     console.log("found it");
-                    el.setAttribute("style", "fill: blue !important;");
+                    el.setAttribute("style", "fill: red !important;");
                 } else {
                     console.log("element not in the doc, can't set")
                 }
@@ -108,8 +128,18 @@ function Viewer() {
                 <Row>
                     <Col>
                         {renderedScore &&
-                            <div style={{width: '500px'}} id={"q_svg_output"} className="score"
-                                 dangerouslySetInnerHTML={{__html: renderedScore}} />}
+                            <>
+                                <Button onClick={() => {
+                                    // If the param is set, decrease only if it stays above page 1, otherwise page 1
+                                    setSearchParams(newPageParams(pageInt ? (pageInt > 1 ? pageInt - 1 : pageInt ?? 1): 1));
+                                }}>Prev Page</Button>
+                                <Button onClick={() => {
+                                    // Don't know how many pages we have, don't add a limit
+                                    setSearchParams(newPageParams(pageInt ? (pageInt + 1): 1));
+                                }}>Next Page</Button>
+                            <div style={{width: '800px'}} id={"q_svg_output"} className="score"
+                                 dangerouslySetInnerHTML={{__html: renderedScore}} />
+                            </>}
                     </Col>
                 </Row>
             </Container>
