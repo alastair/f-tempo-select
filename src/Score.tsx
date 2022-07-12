@@ -253,7 +253,7 @@ class Score extends React.Component<{}, ScoreState> {
     .then(response => response.json())
     .then(data => {
       console.log('Success:', data);
-      this.setState({searchResults: data});
+      this.setState({searchResults: data.data});
     })
     .catch((error) => {
       console.error('Error:', error);
