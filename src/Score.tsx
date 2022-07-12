@@ -240,10 +240,10 @@ class Score extends React.Component<{}, ScoreState> {
     const query = this.getQuery();
     if (!query) return;
 
-    const data = { subsequence: query, interval: this.state.interval };
+    const data = { ngrams: query, interval: this.state.interval };
 
-    fetch('https://solrdev.f-tempo.org/api/query_subsequence', {
-    //fetch('http://localhost:8000/api/query_subsequence', {
+    fetch('https://solrdev.f-tempo.org/api/ngram', {
+    //fetch('http://localhost:8000/api/ngram', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
