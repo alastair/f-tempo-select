@@ -10,6 +10,7 @@ interface ResultState {
     verovioTk: any;
     renderedScore?: string;
     imageFailed?: boolean;
+    error?: string;
 }
 
 interface BBox {
@@ -81,6 +82,9 @@ export default class Result extends Component<ResultProps, ResultState> {
                     }
                 }
             });
+        }).catch(error => {
+            console.error('Error:', error);
+            if (!this.unmounted) this.setState({error: 'Score failed to load'});
         });
     }
 
@@ -151,7 +155,9 @@ export default class Result extends Component<ResultProps, ResultState> {
 
 
     render = () => {
-        return <div>{this.props.result.match_id}<br/>{this.state.renderedScore &&
+        return <div>{this.props.result.match_id}<br/>
+        {this.state.error && <p role="alert">{this.state.error}</p>}
+        {this.state.renderedScore &&
                 <div ref={this.scoreRef} style={{width: '500px'}} id={"m_svg_output"} className="score"
                      dangerouslySetInnerHTML={{__html: this.state.renderedScore}} />}
         {this.state.imageFailed ? <p role="alert">Image failed to load</p> :

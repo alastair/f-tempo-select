@@ -239,6 +239,7 @@ class Score extends React.Component<{}, ScoreState> {
   doSearch = () => {
     const query = this.getQuery();
     if (!query) return;
+    this.setState({error: undefined});
 
     const data = { subsequence: query, interval: this.state.interval };
 
@@ -263,6 +264,7 @@ class Score extends React.Component<{}, ScoreState> {
     })
     .catch((error) => {
       console.error('Error:', error);
+      this.setState({error: 'Search failed'});
     });
   }
 
