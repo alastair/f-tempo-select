@@ -53,15 +53,13 @@ function intervalsToAlphabet(pitch_intervals: number[]) {
  * f-tempo index specific interval mapping function
  * convert a string of pitches to a search string
  * userPitches: 1 1 0 -2 (up1 up1 same down2)
- * This has some black magic due to a bug in the original mapping function
- * 1 and -1 => 6 and -6 and vice-versa. Other numbers are the same
  * @param userPitches
  */
 function userPitchesToIntervalMapping(userPitches: string) {
-  //f-tempo index specific interval mapping function
-  const pitch_intervals = userPitches.split(" ").map((n) => {
-    return parseInt(n, 10);
-  });
+  const tokens = userPitches.trim().split(/\s+/);
+  if (tokens.some(token => !/^[+-]?\d+$/.test(token))) return undefined;
+  const pitch_intervals = tokens.map(Number);
+  if (pitch_intervals.some(interval => !Number.isSafeInteger(interval))) return undefined;
 
   return intervalsToAlphabet(pitch_intervals);
 }
@@ -238,7 +236,12 @@ class Score extends React.Component<{}, ScoreState> {
 
   doSearch = () => {
     const query = this.getQuery();
-    if (!query) return;
+    if (!query) {
+      if (this.state.interval && this.state.userInput.trim()) {
+        this.setState({error: 'Use whole numbers separated by spaces for intervals'});
+      }
+      return;
+    }
     this.setState({error: undefined});
 
     const data = { subsequence: query, interval: this.state.interval };
