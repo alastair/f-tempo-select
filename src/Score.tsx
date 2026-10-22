@@ -19,12 +19,10 @@ type Pitch = {
  * @param pitches
  */
 function pitchesToIntervalMapping(pitches: Pitch[]) {
-  const alphabet = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+  const alphabet = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
 
   const pitch_nums = pitches.map(function(e) {
-    // TODO: This replicates the behaviour of the awk script, where g is 0 and a->f is 1-6
-    //  appears to be a bug because of awk string indexes starting from 1
-    return (alphabet.indexOf(e.pitch.toUpperCase()) + 1) % 7 + ((7 * e.oct) % 7);
+    return alphabet.indexOf(e.pitch.toUpperCase()) + (7 * e.oct);
   });
 
   let pitch_intervals = [];
