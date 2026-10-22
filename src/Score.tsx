@@ -82,6 +82,13 @@ interface ScoreState {
 }
 
 class Score extends React.Component<{}, ScoreState> {
+  private selector?: DragSelect;
+  private selectionStaff: Element | null = null;
+
+  componentWillUnmount() {
+    this.selector?.stop();
+    document.body.classList.remove('s-noselect');
+  }
 
   constructor(props: Readonly<{}>) {
     super(props);
@@ -132,14 +139,23 @@ class Score extends React.Component<{}, ScoreState> {
         // this means that we can't configure it until after we've rendered this.state.mei -
         // we do this in the post-setState callback. We've observed that at this point
         // the element appears to be in the dom.
-        const selector = new DragSelect({
-          selectables: Array.from(document.querySelectorAll('.note')),
-          area: document.getElementById('q_svg_output')!,
+        const area = document.getElementById('q_svg_output')!;
+        this.selector?.stop();
+        const selector = this.selector = new DragSelect({
+          selectables: Array.from(area.querySelectorAll<SVGElement>('.note')),
+          area,
           selectedClass: 'selected',
+          multiSelectKeys: [],
+          draggability: false,
         });
-        selector.subscribe("dragstart", () => {
+        selector.subscribe("dragstart", ({event}: CallbackObject) => {
+          const target = event?.target;
+          this.selectionStaff = target instanceof Element ? target.closest('.staff') : null;
           document.body.classList.add('s-noselect');
         })
+        selector.subscribe("elementselect", ({item}: CallbackObject) => {
+          if (!this.selectionStaff && item) this.selectionStaff = item.closest('.staff');
+        });
         selector.subscribe("callback", (callbackObject: CallbackObject) => {
           document.body.classList.remove('s-noselect');
           if (callbackObject.items) {
@@ -151,52 +167,24 @@ class Score extends React.Component<{}, ScoreState> {
   }
 
   onSelectionChange = (elements: Array<SVGElement>) => {
-    console.debug("selected")
-    console.debug(elements)
-    if (elements.length >= 2) {
-      let firstPosition = this.state.noteIds?.length!;
-      let lastPosition = 0;
-      elements.forEach((e) => {
-        const elementId = e.attributes.getNamedItem("id")?.value!;
-        const position = this.state.noteIds?.indexOf(elementId);
-        if (position !== undefined) {
-          firstPosition = Math.min(firstPosition, position);
-          lastPosition = Math.max(lastPosition, position);
-        }
-      });
+    const staff = this.selectionStaff;
+    const noteIds = this.state.noteIds || [];
+    const staffNotes = staff ? Array.from(staff.querySelectorAll<SVGElement>('.note'))
+      .filter(note => noteIds.includes(note.id))
+      .sort((a, b) => noteIds.indexOf(a.id) - noteIds.indexOf(b.id)) : [];
+    const positions = elements.map(note => staffNotes.indexOf(note)).filter(index => index >= 0);
+    const range = positions.length
+      ? staffNotes.slice(Math.min(...positions), Math.max(...positions) + 1)
+      : [];
 
-      // TODO: find the first and last position in noteIds that anything from `elements` appears
-      console.log(`first-pos: ${firstPosition}`)
-      console.log(`last-pos: ${lastPosition}`)
-
-      let error: string | undefined = undefined;
-      let selected: Pitch[] | undefined = undefined;
-      if (firstPosition !== undefined && lastPosition !== undefined) {
-        console.log(`length: ${lastPosition-firstPosition}`)
-        if (lastPosition - firstPosition > elements.length) {
-          // We selected notes over more than 1 system, skipping the notes from the end of the first system
-          // as this isn't a contiguous list of notes, don't do anything in this case
-          console.error(`len is ${lastPosition-firstPosition} but num elements is ${elements.length}`)
-          error = "too many selected";
-        } else {
-          selected = this.state.notePitches?.slice(firstPosition, lastPosition + 1);
-          console.debug(selected)
-        }
-      }
-      this.setState({
-        error: error,
-        selectedNotes: selected,
-        searchResults: undefined,
-        selectedResult: undefined
-      })
-    } else {
-      this.setState({
-        error: undefined,
-        selectedNotes: undefined,
-        searchResults: undefined,
-        selectedResult: undefined
-      })
-    }
+    // Keep the visible selection and the query's pitches in sync.
+    this.selector?.setSelection(range);
+    this.setState({
+      error: undefined,
+      selectedNotes: range.length ? range.map(note => this.state.notePitches![noteIds.indexOf(note.id)]) : undefined,
+      searchResults: undefined,
+      selectedResult: undefined
+    });
   }
 
   onSelectResult = (selectedIndex: number) => {
