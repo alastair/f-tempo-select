@@ -23,6 +23,8 @@ interface SystemBox {
 }
 
 export default class Result extends Component<ResultProps, ResultState> {
+    private scoreRef = React.createRef<HTMLDivElement>();
+
     constructor(props: Readonly<ResultProps>) {
         super(props);
         this.state = {
@@ -44,16 +46,24 @@ export default class Result extends Component<ResultProps, ResultState> {
             }, () => {
                 // By this stage we've rendered the svg and it's in the DOM, so we can manipulate it
                 // TODO: This is super dodgy because we're editing the SVG in the dom after React has rendered it :(
+                const resultSvg = this.scoreRef.current?.querySelector('svg');
+                if (!resultSvg) return;
+
+                const notesById = new Map(
+                    Array.from(resultSvg.querySelectorAll('.note[id]')).map(element => [element.id, element])
+                );
                 for (const match of this.props.result.notes) {
-                    const elements = [];
+                    const elements: Element[] = [];
                     for (const note of match) {
-                        elements.push(document.getElementById(note.id));
+                        const element = notesById.get(note.id);
+                        // Matches may include notes on a page that isn't rendered.
+                        if (element) elements.push(element);
                     }
 
                     const boundingBoxes = this.boundingBoxesForElements(elements);
 
                     for (const bb of Object.values(boundingBoxes)) {
-                        const rect = SVG().addTo('#m_svg_output svg');
+                        const rect = SVG().addTo(SVG(resultSvg));
                         rect.rect(bb.right - bb.left, bb.bottom - bb.top);
                         rect.move(bb.left, bb.top);
                         rect.attr({'fill-opacity': 0.3, 'stroke': "orange"});
@@ -98,17 +108,21 @@ export default class Result extends Component<ResultProps, ResultState> {
      * @param elements
      * @return an object of bounding boxes for each system
      */
-    boundingBoxesForElements = (elements: any): SystemBox => {
-        const systems: any = {};
+    boundingBoxesForElements = (elements: Element[]): SystemBox => {
+        const systems: SystemBox = {};
         if(!elements.length) return systems;
 
         for (const element of elements) {
             const elementStaff = element.closest('.staff');
+            const elementSystem = element.closest('.system');
+            if (!elementStaff || !elementSystem) continue;
+
             const staffLines = elementStaff.getElementsByTagName('path');
+            if (!staffLines.length) continue;
             const elTop = this.convertScale(staffLines[0]).y;
             const elBot = this.convertScale(staffLines[staffLines.length-1]).y;
 
-            const system = element.closest('.system').id;
+            const system = elementSystem.id;
             if (systems[system]) {
                 systems[system].left = Math.min(this.convertScale(element).x, systems[system].left);
                 systems[system].right = Math.max(this.convertScale(element).right, systems[system].right);
@@ -127,7 +141,7 @@ export default class Result extends Component<ResultProps, ResultState> {
 
     render = () => {
         return <div>{this.props.result.match_id}<br/>{this.state.renderedScore &&
-                <div style={{width: '500px'}} id={"m_svg_output"} className="score"
+                <div ref={this.scoreRef} style={{width: '500px'}} id={"m_svg_output"} className="score"
                      dangerouslySetInnerHTML={{__html: this.state.renderedScore}} />}
         <img alt={"some score"} width="500" src={"https://search.f-tempo.org/img/jpg/" + this.props.result.match_id + '.jpg'} onLoad={this.loadVerovio} /></div>
     }
