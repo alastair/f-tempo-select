@@ -1,10 +1,10 @@
-FROM node:16 AS builder
+FROM node:24-bookworm-slim AS builder
 # Set working directory
 WORKDIR /app
 
 COPY package-lock.json .
 COPY package.json .
-RUN npm install
+RUN npm ci
 
 COPY . .
 RUN npm run build
