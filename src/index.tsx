@@ -1,11 +1,11 @@
 import React from 'react';
-import ReactDOM from 'react-dom';
+import {createRoot} from 'react-dom/client';
 import './index.css';
 import {BrowserRouter, Route, Routes} from "react-router-dom";
 import App from './App';
 import Viewer from "./Viewer";
 
-ReactDOM.render(
+createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
         <BrowserRouter basename="/ngram">
             <Routes>
@@ -13,7 +13,6 @@ ReactDOM.render(
                 <Route path="view/:id" element={<Viewer />} />
             </Routes>
         </BrowserRouter>
-    </React.StrictMode>,
-    document.getElementById('root')
+    </React.StrictMode>
 );
 

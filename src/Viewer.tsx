@@ -37,7 +37,7 @@ function parseMeiParts(meiContents: string) {
 function Viewer() {
 
     const [searchParams, setSearchParams] = useSearchParams();
-    const [renderedScore, setRenderedScore] = useState(undefined);
+    const [renderedScore, setRenderedScore] = useState<string>();
     const [staffNotes, setStaffNotes] = useState<{[k: string]: string[]}>({});
     const [error, setError] = useState<string|null>(null);
     const params = useParams();
