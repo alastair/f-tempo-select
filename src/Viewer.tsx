@@ -40,13 +40,15 @@ function Viewer() {
     const [renderedScore, setRenderedScore] = useState<string>();
     const [staffNotes, setStaffNotes] = useState<{[k: string]: string[]}>({});
     const [error, setError] = useState<string|null>(null);
+    const [pageCount, setPageCount] = useState(1);
     const params = useParams();
     const documentId = params.id;
     const staff = searchParams.get('staff');
     const start = searchParams.get('start');
     const count = searchParams.get('count');
     const page = searchParams.get('page');
-    const pageInt = page && parseInt(page, 10);
+    const pageNumber = Number(page);
+    const pageInt = Number.isSafeInteger(pageNumber) && pageNumber > 0 ? pageNumber : 1;
 
     const newPageParams = useCallback((newPage: number) => {
         return Object.assign(
@@ -58,18 +60,16 @@ function Viewer() {
     }, [count, staff, start]);
 
     useEffect(() => {
-        // If the page argument is missing or isn't a number, set it to 1
-        if (page === null || isNaN(parseInt(page, 10))) {
-            setSearchParams(newPageParams(1));
+        if (page !== String(pageInt)) {
+            setSearchParams(newPageParams(pageInt), {replace: true});
         }
-    }, [count, newPageParams, page, setSearchParams, staff, start]);
+    }, [newPageParams, page, pageInt, setSearchParams]);
 
     useEffect(() => {
-        if (!pageInt) {
-            return;
-        }
+        let cancelled = false;
         const verovioTk =  new window.verovio.toolkit();
         fetch(`/api/get_mei?id=${encodeURIComponent(documentId || '')}`).then(r => r.text()).then(meiXML => {
+            if (cancelled) return;
             const options = {
                 footer: "none",
                 shrinkToFit: true,
@@ -77,12 +77,19 @@ function Viewer() {
             };
             verovioTk.setOptions(options);
             verovioTk.loadData(meiXML, {});
+            const pages = Math.max(1, verovioTk.getPageCount());
+            setPageCount(pages);
+            if (pageInt > pages) {
+                setSearchParams(newPageParams(pages), {replace: true});
+                return;
+            }
             let svg = verovioTk.renderToSVG(pageInt);
             setRenderedScore(svg);
             setStaffNotes(parseMeiParts(meiXML));
             setError(null);
         });
-    }, [documentId, page, pageInt])
+        return () => { cancelled = true; };
+    }, [documentId, pageInt, newPageParams, setSearchParams])
 
     useEffect(() => {
         if (!renderedScore) {
@@ -129,13 +136,11 @@ function Viewer() {
                     <Col>
                         {renderedScore &&
                             <>
-                                <Button onClick={() => {
-                                    // If the param is set, decrease only if it stays above page 1, otherwise page 1
-                                    setSearchParams(newPageParams(pageInt ? (pageInt > 1 ? pageInt - 1 : pageInt ?? 1): 1));
+                                <Button disabled={pageInt <= 1} onClick={() => {
+                                    setSearchParams(newPageParams(Math.max(1, pageInt - 1)));
                                 }}>Prev Page</Button>
-                                <Button onClick={() => {
-                                    // Don't know how many pages we have, don't add a limit
-                                    setSearchParams(newPageParams(pageInt ? (pageInt + 1): 1));
+                                <Button disabled={pageInt >= pageCount} onClick={() => {
+                                    setSearchParams(newPageParams(Math.min(pageCount, pageInt + 1)));
                                 }}>Next Page</Button>
                             <div style={{width: '800px'}} id={"q_svg_output"} className="score"
                                  dangerouslySetInnerHTML={{__html: renderedScore}} />
