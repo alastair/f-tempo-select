@@ -9,6 +9,7 @@ interface ResultProps {
 interface ResultState {
     verovioTk: any;
     renderedScore?: string;
+    imageFailed?: boolean;
 }
 
 interface BBox {
@@ -24,6 +25,15 @@ interface SystemBox {
 
 export default class Result extends Component<ResultProps, ResultState> {
     private scoreRef = React.createRef<HTMLDivElement>();
+    private unmounted = false;
+
+    componentDidMount() {
+        this.unmounted = false;
+    }
+
+    componentWillUnmount() {
+        this.unmounted = true;
+    }
 
     constructor(props: Readonly<ResultProps>) {
         super(props);
@@ -34,6 +44,7 @@ export default class Result extends Component<ResultProps, ResultState> {
 
     loadVerovio = () => {
         fetch('/api/get_mei?id=' + encodeURIComponent(this.props.result.match_id)).then(r => r.text()).then(meiXML => {
+            if (this.unmounted || this.state.imageFailed) return;
             const options = {
                 footer: "none",
                 shrinkToFit: true,
@@ -143,6 +154,8 @@ export default class Result extends Component<ResultProps, ResultState> {
         return <div>{this.props.result.match_id}<br/>{this.state.renderedScore &&
                 <div ref={this.scoreRef} style={{width: '500px'}} id={"m_svg_output"} className="score"
                      dangerouslySetInnerHTML={{__html: this.state.renderedScore}} />}
-        <img alt={"some score"} width="500" src={"https://search.f-tempo.org/img/jpg/" + this.props.result.match_id + '.jpg'} onLoad={this.loadVerovio} /></div>
+        {this.state.imageFailed ? <p role="alert">Image failed to load</p> :
+            <img alt={"some score"} width="500" src={"https://search.f-tempo.org/img/jpg/" + this.props.result.match_id + '.jpg'} onLoad={this.loadVerovio}
+                 onError={() => this.setState({imageFailed: true, renderedScore: undefined})} />}</div>
     }
 }

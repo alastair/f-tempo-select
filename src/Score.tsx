@@ -77,6 +77,7 @@ interface ScoreState {
   userInput: string;
   interval: boolean;
   error?: string;
+  imageFailed?: boolean;
   selectedNotes?: Pitch[];
   searchResults?: NgramResult[];
   selectedResult?: number | undefined;
@@ -97,6 +98,7 @@ class Score extends React.Component<{}, ScoreState> {
 
   loadVerovio = () => {
     fetch(process.env.PUBLIC_URL + '/GB-Lbl_A103b_025_0.mei').then(r => r.text()).then(meiXML => {
+      if (this.state.imageFailed) return;
       const options = {
         footer: "none",
         shrinkToFit: true,
@@ -273,7 +275,9 @@ class Score extends React.Component<{}, ScoreState> {
           {this.state.renderedScore &&
               <div style={{width: '500px'}} id={"q_svg_output"} className="score"
                    dangerouslySetInnerHTML={{__html: this.state.renderedScore}} />}
-          <img alt={"some score"} width="500" src={process.env.PUBLIC_URL + '/GB-Lbl_A103b_025_0.jpg'} onLoad={this.onImageLoad} />
+          {this.state.imageFailed ? <p role="alert">Image failed to load</p> :
+              <img alt={"some score"} width="500" src={process.env.PUBLIC_URL + '/GB-Lbl_A103b_025_0.jpg'} onLoad={this.onImageLoad}
+                   onError={() => this.setState({imageFailed: true, renderedScore: undefined, selectedNotes: undefined})} />}
           <p>
             {this.state.error && <span>Error: {this.state.error}</span> }
           </p>
@@ -301,7 +305,7 @@ class Score extends React.Component<{}, ScoreState> {
           </p>
           {this.state.searchResults && <ResultList results={this.state.searchResults} onResultSelect={this.onSelectResult} />}
         </Col>
-        <Col>{ this.state.selectedResult !== undefined && <Result result={this.state.searchResults![this.state.selectedResult]} />}</Col>
+        <Col>{ this.state.selectedResult !== undefined && <Result key={this.state.searchResults![this.state.selectedResult].match_id} result={this.state.searchResults![this.state.selectedResult]} />}</Col>
       </Row>
     </Container>
   }
