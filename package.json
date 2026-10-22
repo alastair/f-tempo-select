@@ -1,6 +1,6 @@
 {
   "name": "f-tempo-select",
-  "homepage": "https://solrdev.f-tempo.org/ngram/",
+  "homepage": "/ngram/",
   "version": "0.1.0",
   "private": true,
   "dependencies": {

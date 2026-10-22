@@ -1,4 +1,4 @@
-type NgramNote = {
+export type NgramNote = {
     note: string
     id: string
     system: string

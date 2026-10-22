@@ -31,7 +31,7 @@ export default class Result extends Component<ResultProps, ResultState> {
     }
 
     loadVerovio = () => {
-        fetch("https://uk-dev-ftempo.rism.digital/img/mei/" + this.props.result.match_id + '.mei').then(r => r.text()).then(meiXML => {
+        fetch('/api/get_mei?id=' + encodeURIComponent(this.props.result.match_id)).then(r => r.text()).then(meiXML => {
             const options = {
                 footer: "none",
                 shrinkToFit: true,
@@ -129,6 +129,6 @@ export default class Result extends Component<ResultProps, ResultState> {
         return <div>{this.props.result.match_id}<br/>{this.state.renderedScore &&
                 <div style={{width: '500px'}} id={"m_svg_output"} className="score"
                      dangerouslySetInnerHTML={{__html: this.state.renderedScore}} />}
-        <img alt={"some score"} width="500" src={"https://uk-dev-ftempo.rism.digital/img/jpg/" + this.props.result.match_id + '.jpg'} onLoad={this.loadVerovio} /></div>
+        <img alt={"some score"} width="500" src={"https://search.f-tempo.org/img/jpg/" + this.props.result.match_id + '.jpg'} onLoad={this.loadVerovio} /></div>
     }
 }

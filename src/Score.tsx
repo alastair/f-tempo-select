@@ -1,6 +1,6 @@
 import React, {SyntheticEvent} from "react";
 import DragSelect from "dragselect/dist/DragSelect";
-import type {NgramResult} from "./ResultList";
+import type {NgramResult, NgramNote} from "./ResultList";
 import ResultList from "./ResultList";
 import {Button, Col, Container, Form, Row} from "react-bootstrap";
 import Result from "./Result";
@@ -240,10 +240,9 @@ class Score extends React.Component<{}, ScoreState> {
     const query = this.getQuery();
     if (!query) return;
 
-    const data = { ngrams: query, interval: this.state.interval };
+    const data = { subsequence: query, interval: this.state.interval };
 
-    fetch('https://solrdev.f-tempo.org/api/ngram', {
-    //fetch('http://localhost:8000/api/ngram', {
+    fetch('/api/query_subsequence', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -253,7 +252,14 @@ class Score extends React.Component<{}, ScoreState> {
     .then(response => response.json())
     .then(data => {
       console.log('Success:', data);
-      this.setState({searchResults: data.data});
+      if (data.status !== 'ok') throw new Error(data.error || 'Search failed');
+      const searchResults: NgramResult[] = data.data.results.map(
+        (result: {id: string; matches: {notes: NgramNote[]}[]}) => ({
+          match_id: result.id,
+          notes: result.matches.map(match => match.notes),
+        })
+      );
+      this.setState({searchResults, selectedResult: undefined});
     })
     .catch((error) => {
       console.error('Error:', error);

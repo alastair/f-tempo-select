@@ -69,7 +69,7 @@ function Viewer() {
             return;
         }
         const verovioTk =  new window.verovio.toolkit();
-        fetch(`https://solrdev.f-tempo.org/api/get_mei?id=${documentId}`).then(r => r.text()).then(meiXML => {
+        fetch(`/api/get_mei?id=${encodeURIComponent(documentId || '')}`).then(r => r.text()).then(meiXML => {
             const options = {
                 footer: "none",
                 shrinkToFit: true,
